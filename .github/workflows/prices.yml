@@ -1,0 +1,43 @@
+name: Steam prices
+# Every 2 hours: read Steam Market prices for at most 45 minutes, continuing where the previous run stopped
+# (a full pass over ~12,000 listings takes about 4 runs), and publish prices.json on the `prices` branch.
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: steam-prices
+  cancel-in-progress: false
+jobs:
+  prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Script check
+        run: node --test tests/
+      - name: Previous prices (kept when Steam refuses a request)
+        run: |
+          git fetch --depth=1 origin prices || true
+          git show origin/prices:prices.json > /tmp/old.json 2>/dev/null || echo '{}' > /tmp/old.json
+      - name: Read Steam Market prices
+        run: node scripts/fetch_prices.mjs /tmp/old.json /tmp/prices.json
+        env:
+          MAX_MINUTES: '45'
+          PAUSE_MS: '8000'
+      - name: Publish to the prices branch (one commit, history is not kept)
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout --orphan prices-new
+          git rm -rfq .
+          cp /tmp/prices.json prices.json
+          printf 'Lowest Steam Community Market prices for SKINGUESS (skinguess.eu), USD cents per wear: FN, MW, FT, WW, BS.\nWritten by .github/workflows/prices.yml on main.\n' > README.md
+          git add prices.json README.md
+          git commit -qm "Steam prices $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f origin HEAD:prices
