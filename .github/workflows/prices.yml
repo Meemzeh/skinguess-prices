@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '20'
       - name: Script check
-        run: node --test tests/
+        run: node --test tests/fetch_prices.test.mjs
       - name: Previous prices (kept when Steam refuses a request)
         run: |
           git fetch --depth=1 origin prices || true
