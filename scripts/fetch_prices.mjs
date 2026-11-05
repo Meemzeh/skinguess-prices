@@ -35,6 +35,20 @@ export function parseName(hash) {
   return { sv, name, wear };
 }
 
+// The market search only answers in US dollars, so the euro rate of the European Central Bank is stored with
+// the prices and the site converts. <Cube currency='USD' rate='1.0812'/> means 1 euro = 1.0812 dollar.
+export function parseEcb(xml) {
+  const r = Number((/currency=['"]USD['"]\s+rate=['"]([\d.]+)['"]/.exec(xml || '') || [])[1]);
+  const d = (/time=['"](\d{4}-\d{2}-\d{2})['"]/.exec(xml || '') || [])[1] || null;
+  return r > 0.5 && r < 2 ? { rate: r, date: d } : null;
+}
+async function eurRate() {
+  try {
+    const r = await fetch(process.env.ECB_URL || 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml');
+    return r.ok ? parseEcb(await r.text()) : null;
+  } catch (e) { return null; }
+}
+
 async function page(start) {
   let wait = 60000;
   for (let attempt = 1; attempt <= 5; attempt++) {
@@ -81,8 +95,10 @@ async function main() {
     start += (j && j.results.length) || PAGE;
     if (start < total) await sleep(PAUSE);
   }
+  const ecb = await eurRate();                             // no answer: keep the rate of the previous run
+  console.log(ecb ? `euro rate: 1 EUR = ${ecb.rate} USD (ECB, ${ecb.date})` : 'no euro rate from the ECB, keeping the old one');
   const next = start >= total ? 0 : start;                 // where the next run continues (0 = start over)
-  const out = { updated: got ? new Date().toISOString() : (old.updated || null), next, total: isFinite(total) ? total : (old.total || null), currency: 'USD', source: 'Steam Community Market, lowest listing', usd: prices, sv: souvenir };
+  const out = { updated: got ? new Date().toISOString() : (old.updated || null), next, total: isFinite(total) ? total : (old.total || null), currency: 'USD', usdPerEur: ecb ? ecb.rate : (old.usdPerEur || null), rateDate: ecb ? ecb.date : (old.rateDate || null), source: 'Steam Community Market, lowest listing; euro rate from the ECB', usd: prices, sv: souvenir };
   fs.writeFileSync(OUT, JSON.stringify(out));
   console.log(`done: ${requests} requests from ${firstStart} to ${start} of ${total}, ${got} listings read, ${failed} requests failed, ${Object.keys(prices).length} skins, ${Object.keys(souvenir).length} souvenir skins, next run starts at ${next}`);
   if (!got && !old.updated) process.exitCode = 1;

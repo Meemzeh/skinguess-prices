@@ -10,8 +10,9 @@ Lowest Steam Community Market prices for every CS2 skin, per wear, for [SKINGUES
   result as a single commit to the **`prices`** branch, so the history does not grow.
 - The site reads `https://raw.githubusercontent.com/Meemzeh/skinguess-prices/prices/prices.json`.
 
-`prices.json`: `{ updated, next, total, currency: "USD", usd: { "<skin>": [FN, MW, FT, WW, BS] }, sv: { ...Souvenir } }`,
-prices in US cents, `null` when nobody is selling that wear. StatTrak is not included and Steam does not split
+`prices.json`: `{ updated, next, total, currency: "USD", usdPerEur, rateDate, usd: { "<skin>": [FN, MW, FT, WW, BS] }, sv: { ...Souvenir } }`,
+prices in US cents, `null` when nobody is selling that wear. `usdPerEur` is the daily euro rate of the European
+Central Bank (1 EUR = x USD); the site shows the prices in euro with it. StatTrak is not included and Steam does not split
 Doppler phases.
 
 If GitHub ever pauses the schedule (it does that after 60 days without activity), turn it back on in the
